@@ -1,0 +1,229 @@
+import os
+import math
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from collections import defaultdict
+
+# =========================
+# CONFIG — edit here only
+# =========================
+INPUT_FOLDER = r"C:/Users/jvira/Documents/Actuator_Optimization_3D_printed/Actuator_Optimization_3D_printed/plots/hardware_results/pancake/CPG_PANCAKE_M6C12_14/efficiency test_parsed"
+
+COL = {
+    "time": "time_s",
+    "meas_torque": "loadcell_torque_nm",
+    "meas_speed_rpm": "test_velocity",
+    "voltage": "test_voltage",
+    "phase_current": "test_current",
+}
+
+T_START, T_END = 10.0, 20.0
+
+ABS_TORQUE = True
+ABS_SPEED = True
+
+FIGSIZE = (8.0, 5.0)
+DPI = 180
+LINEWIDTH = 1.6
+MARKERSIZE = 4.5
+LEGEND_FONTSIZE = 9
+GRID_STYLE = (":", 0.7)
+
+PLOT_AS_PERCENT = True
+
+X_LIMITS = (0, 19)
+Y_LIMITS = (0, 100)
+
+AXIS_LABEL_FONTSIZE = 16
+TICK_FONTSIZE = 14
+
+# Data sanity
+EFF_MIN = 0.0
+EFF_MAX = 100.0
+MIN_POINTS_PER_SPEED = 3
+# =========================
+
+
+def rpm_to_rad_s(rpm):
+    return rpm * 2.0 * math.pi / 60.0
+
+
+def parse_cmd_from_filename(filename):
+    base = os.path.splitext(filename)[0]
+    t_str, r_str = base.split("_", 1)
+    return float(t_str), rpm_to_rad_s(float(r_str))
+
+
+# ------------------------------------------------------------------
+# LOAD + PROCESS DATA
+# ------------------------------------------------------------------
+by_speed_raw = defaultdict(list)
+
+for fn in os.listdir(INPUT_FOLDER):
+    if not fn.endswith(".csv"):
+        continue
+
+    try:
+        cmd_torque, cmd_speed_rad_s = parse_cmd_from_filename(fn)
+        df = pd.read_csv(os.path.join(INPUT_FOLDER, fn))
+
+        required = list(COL.values())
+        if not all(c in df.columns for c in required):
+            continue
+
+        win = df[(df[COL["time"]] >= T_START) & (df[COL["time"]] < T_END)]
+        if win.empty:
+            continue
+
+        avg_torque = win[COL["meas_torque"]].mean()
+        avg_speed_rpm = win[COL["meas_speed_rpm"]].mean()
+        avg_v = win[COL["voltage"]].mean()
+        avg_i = win[COL["phase_current"]].mean()
+
+        if ABS_TORQUE:
+            avg_torque = abs(avg_torque)
+        if ABS_SPEED:
+            avg_speed_rpm = abs(avg_speed_rpm)
+
+        meas_speed_rad_s = rpm_to_rad_s(avg_speed_rpm)
+
+        denom_mech = cmd_torque * cmd_speed_rad_s
+        denom_elec = avg_v * avg_i
+
+        if denom_mech == 0 or denom_elec == 0:
+            continue
+
+        mech_eff = (avg_torque * meas_speed_rad_s) / denom_mech
+        total_eff = (avg_torque * meas_speed_rad_s) / denom_elec
+
+        if PLOT_AS_PERCENT:
+            mech_eff *= 100.0
+            total_eff *= 100.0
+
+        if (
+            np.isfinite(mech_eff)
+            and np.isfinite(total_eff)
+            and EFF_MIN <= mech_eff <= EFF_MAX
+            and EFF_MIN <= total_eff <= EFF_MAX
+        ):
+            by_speed_raw[cmd_speed_rad_s].append(
+                (cmd_torque, mech_eff, total_eff)
+            )
+
+    except Exception as e:
+        print(f"Skipping {fn}: {e}")
+
+# Remove bad speeds
+by_speed = {
+    s: pts for s, pts in by_speed_raw.items()
+    if len(pts) >= MIN_POINTS_PER_SPEED
+}
+
+# ------------------------------------------------------------------
+# AVERAGING
+# ------------------------------------------------------------------
+avg_per_speed = {}
+avg_per_torque = defaultdict(list)
+all_mech, all_total = [], []
+
+for speed, pts in by_speed.items():
+    mech_vals = [p[1] for p in pts]
+    total_vals = [p[2] for p in pts]
+
+    avg_per_speed[speed] = {
+        "mech_avg": np.mean(mech_vals),
+        "total_avg": np.mean(total_vals),
+        "num_pts": len(pts),
+    }
+
+    for torque, mech, total in pts:
+        avg_per_torque[torque].append((mech, total))
+        all_mech.append(mech)
+        all_total.append(total)
+
+avg_per_torque = {
+    t: {
+        "mech_avg": np.mean([v[0] for v in vals]),
+        "total_avg": np.mean([v[1] for v in vals]),
+        "num_pts": len(vals),
+    }
+    for t, vals in avg_per_torque.items()
+}
+
+overall_avg = {
+    "mech_avg": np.mean(all_mech),
+    "total_avg": np.mean(all_total),
+    "num_pts": len(all_mech),
+}
+
+# ------------------------------------------------------------------
+# PLOT (AVERAGED CURVES ONLY)
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=FIGSIZE, dpi=DPI)
+
+speeds_sorted = sorted(by_speed.keys())
+cmap = plt.colormaps["tab10"]
+colors = [cmap(i) for i in range(len(speeds_sorted))]
+
+for idx, speed in enumerate(speeds_sorted):
+    torque_groups = defaultdict(list)
+
+    for torque, mech, total in by_speed[speed]:
+        torque_groups[torque].append((mech, total))
+
+    torques, mech_avg, total_avg = [], [], []
+
+    for torque in sorted(torque_groups):
+        vals = torque_groups[torque]
+        torques.append(torque)
+        mech_avg.append(np.mean([v[0] for v in vals]))
+        total_avg.append(np.mean([v[1] for v in vals]))
+
+    ax.plot(
+        torques, mech_avg,
+        marker='o', linestyle='-',
+        linewidth=LINEWIDTH, markersize=MARKERSIZE,
+        color=colors[idx],
+        label=f"{speed:.1f} rad/s mech",
+    )
+
+    ax.plot(
+        torques, total_avg,
+        marker='s', linestyle='--',
+        linewidth=LINEWIDTH, markersize=MARKERSIZE,
+        color=colors[idx],
+        label=f"{speed:.1f} rad/s total",
+    )
+
+ax.set_xlabel("Commanded Torque (Nm)", fontsize=AXIS_LABEL_FONTSIZE)
+ax.set_ylabel("Efficiency (%)", fontsize=AXIS_LABEL_FONTSIZE)
+ax.set_title("CPG Pancake MAD_M6C12 (14:1)", fontsize=AXIS_LABEL_FONTSIZE)
+
+ax.tick_params(axis='both', labelsize=TICK_FONTSIZE)
+ax.grid(True, linestyle=GRID_STYLE[0], linewidth=GRID_STYLE[1])
+
+if X_LIMITS:
+    ax.set_xlim(X_LIMITS)
+if Y_LIMITS:
+    ax.set_ylim(Y_LIMITS)
+
+ax.legend(fontsize=LEGEND_FONTSIZE, ncol=4)
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------------------------------------
+# PRINT SUMMARY (for paper / report)
+# ------------------------------------------------------------------
+print("/n=== Average Efficiency per Speed ===")
+for s, v in avg_per_speed.items():
+    print(f"{s:.2f} rad/s | mech={v['mech_avg']:.2f}% | total={v['total_avg']:.2f}% | N={v['num_pts']}")
+
+print("/n=== Average Efficiency per Torque ===")
+for t, v in sorted(avg_per_torque.items()):
+    print(f"{t:.2f} Nm | mech={v['mech_avg']:.2f}% | total={v['total_avg']:.2f}% | N={v['num_pts']}")
+
+print("/n=== Overall Average Efficiency ===")
+print(f"Mechanical: {overall_avg['mech_avg']:.2f}%")
+print(f"Total: {overall_avg['total_avg']:.2f}%")
+print(f"Total points: {overall_avg['num_pts']}")

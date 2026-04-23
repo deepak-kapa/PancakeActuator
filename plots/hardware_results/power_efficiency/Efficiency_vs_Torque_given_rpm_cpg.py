@@ -4,11 +4,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from pathlib import Path
 
-# =========================
-# CONFIG — edit here only
-# =========================
-INPUT_FOLDER = r"./CPG_MAD_M6C12_14_power_eff_data"
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_FOLDER = BASE_DIR / "CPG_MAD_M6C12_14_power_eff_data"
+
 
 # Column names in your CSVs (RPM in CSV for speed; we convert to rad/s)
 COL = {

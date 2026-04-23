@@ -50,8 +50,8 @@ def plot_csv_data(file1, file2,
 
     # plot raw curves
     plt.figure(figsize=(9, 6))
-    plt.plot(x1, y1, label="SSPG (7.2:1)", alpha=0.7, linewidth=line_width, color="blue")
-    plt.plot(x2, y2, label="CPG (14:1)", alpha=0.7, linewidth=line_width, color="red")
+    plt.plot(x1, y1, label="CPG (14:1)", alpha=0.7, linewidth=line_width, color="blue")
+    plt.plot(x2, y2, label="Pancake CPG (14:1)", alpha=0.7, linewidth=line_width, color="red")
 
     # helper to draw a fitted segment over its actual x-range
     def draw_fit(fit, x_subset, label_prefix, color):
@@ -63,10 +63,10 @@ def plot_csv_data(file1, file2,
                 #  label=f"{label_prefix}: y={fit['m']:.4f}x+{fit['b']:.4f} (R²={fit['r2']:.3f})")
 
     # draw fits
-    draw_fit(fit1_pos, x1[pos1], "SSPG fit (+)", "blue")
-    draw_fit(fit1_neg, x1[neg1], "SSPG fit (−)", "blue")
-    draw_fit(fit2_pos, x2[pos2], "CPG fit (+)", "red")
-    draw_fit(fit2_neg, x2[neg2], "CPG fit (−)", "red")
+    draw_fit(fit1_pos, x1[pos1], "CPG fit (+)", "blue")
+    draw_fit(fit1_neg, x1[neg1], "CPG fit (−)", "blue")
+    draw_fit(fit2_pos, x2[pos2], "Pancake CPG fit (+)", "red")
+    draw_fit(fit2_neg, x2[neg2], "Pancake CPG fit (−)", "red")
 
     # labels, legend, grid
     plt.xlabel("Actuator Torque [Nm]", fontsize=axis_fontsize)
@@ -86,15 +86,15 @@ def plot_csv_data(file1, file2,
             print(f"{name}: slope={fit['m']:.6f} rad/Nm, intercept={fit['b']:.6f}, R²={fit['r2']:.4f}, "
                   f"stiffness≈{stiffness:.6f} Nm/rad")
 
-    print_fit("SSPG (+)", fit1_pos)
-    print_fit("SSPG (−)", fit1_neg)
-    print_fit("CPG (+)", fit2_pos)
-    print_fit("CPG (−)", fit2_neg)
+    print_fit("CPG (+)", fit1_pos)
+    print_fit("CPG (−)", fit1_neg)
+    print_fit("Pancake CPG (+)", fit2_pos)
+    print_fit("Pancake CPG (−)", fit2_neg)
 
 # Example usage
 plot_csv_data(
-    r"./transmission_stiffness_sspg.csv",
-    r"./transmission_stiffness_cpg.csv",
+    r"C:/Users/jvira/Documents/Actuator_Optimization_3D_printed/Actuator_Optimization_3D_printed/plots/hardware_results/transmission_stiffness/transmission_stiffness_cpg.csv",
+    r"C:/Users/jvira/Documents/Actuator_Optimization_3D_printed/Actuator_Optimization_3D_printed/plots/hardware_results/transmission_stiffness/transmission_stiffness_pancake_cpg.csv",
     axis_fontsize=20,
     tick_fontsize=18,
     legend_fontsize=18,

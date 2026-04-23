@@ -3,6 +3,7 @@ import numpy as np
 from ActuatorAndGearbox import motor
 from ActuatorAndGearbox import material
 from ActuatorAndGearbox import compoundPlanetaryGearbox
+from ActuatorAndGearbox import pancakeCompoundActuator
 from ActuatorAndGearbox import compoundPlanetaryActuator
 from ActuatorAndGearbox import optimizationCompoundPlanetaryActuator
 import os
@@ -297,10 +298,16 @@ compoundPlanetaryGearboxInstance = compoundPlanetaryGearbox(design_parameters   
                                                             densityStructure          = PLA["density"],
                                                             maxGearAllowableStressMPa = PLA["maxAllowableStressMPa"])
 
+compoundPlanetaryGearboxInstance_pancake = compoundPlanetaryGearbox(design_parameters         = cpg_design_params,
+                                                                    gear_standard_parameters  = Gear_standard_parameters,
+                                                                    densityGears              = PLA["density"],
+                                                                    densityStructure          = PLA["density"],
+                                                                    maxGearAllowableStressMPa = PLA["maxAllowableStressMPa"])
+
 #-----------------------------------------------------
 # Actuator
 #-----------------------------------------------------
-maxGBDia_multFactor           = cpg_optimization_params["MAX_GB_DIA_MULT_FACTOR"] # 1
+maxGBDia_multFactor           = 1.25 #cpg_optimization_params["MAX_GB_DIA_MULT_FACTOR"] # 1
 maxGBDia_multFactor_MAD_M6C12 = cpg_optimization_params["MAX_GB_DIA_MULT_FACTOR_MAD_M6C12"] # 1.25
 
 maxGearboxDiameter_U8         = maxGBDia_multFactor * MotorU8.motorDiaMM       
@@ -310,65 +317,48 @@ maxGearboxDiameter_VT8020     = maxGBDia_multFactor * Motor8020.motorDiaMM
 maxGearboxDiameter_U12        = maxGBDia_multFactor * MotorU12.motorDiaMM     
 maxGearboxDiameter_MAD_M6C12  = maxGBDia_multFactor_MAD_M6C12 * MotorMAD_M6C12.motorDiaMM
 
-# U8-Actuator
-Actuator_U8 = compoundPlanetaryActuator(design_parameters        = cpg_design_params,
-                                        motor                    = MotorU8,  
-                                        motor_driver_params      = Motor_Driver_OdrivePro_params,
-                                        compoundPlanetaryGearbox = compoundPlanetaryGearboxInstance, 
-                                        FOS                      = MIT_params["FOS"], 
-                                        serviceFactor            = MIT_params["serviceFactor"], 
-                                        maxGearboxDiameter       = maxGearboxDiameter_U8,
-                                        stressAnalysisMethodName = "MIT")
+#-------------------------------------------------------
+# Material options
+#-------------------------------------------------------
+MATERIAL_SETTINGS = {
+    "3dp": {
+        "densityGears": PLA["density"],
+        "densityStructure": PLA["density"],
+        "maxGearAllowableStressMPa": PLA["maxAllowableStressMPa"]
+    },
+    "metal": {
+        "densityGears": Steel["density"],
+        "densityStructure": Aluminum["density"],
+        "maxGearAllowableStressMPa": Steel["maxAllowableStressMPa"]
+    }
+}
 
-# U10-Actuator
-Actuator_U10 = compoundPlanetaryActuator(design_parameters        = cpg_design_params,
-                                         motor                    = MotorU10,  
-                                         motor_driver_params      = Motor_Driver_OdrivePro_params,
-                                         compoundPlanetaryGearbox = compoundPlanetaryGearboxInstance, 
-                                         FOS                      = MIT_params["FOS"], 
-                                         serviceFactor            = MIT_params["serviceFactor"], 
-                                         maxGearboxDiameter       = maxGearboxDiameter_U10,
-                                         stressAnalysisMethodName = "MIT")
+def build_actuator(motor_obj, maxGearboxDiameter, material_mode, style):
+    material_mode = material_mode.lower()
+    if material_mode not in MATERIAL_SETTINGS:
+        raise ValueError("material_mode must be '3dp' or 'metal'")
+    if style not in ["normal", "pancake"]:
+        raise ValueError("style must be 'normal' or 'pancake'")
 
-# MN8014-Actuator
-Actuator_MN8014 = compoundPlanetaryActuator(design_parameters        = cpg_design_params,
-                                            motor                    = MotorMN8014,  
-                                            motor_driver_params      = Motor_Driver_OdrivePro_params,
-                                            compoundPlanetaryGearbox = compoundPlanetaryGearboxInstance, 
-                                            FOS                      = MIT_params["FOS"], 
-                                            serviceFactor            = MIT_params["serviceFactor"], 
-                                            maxGearboxDiameter       = maxGearboxDiameter_MN8014,
-                                            stressAnalysisMethodName = "MIT")
+    material_settings = MATERIAL_SETTINGS[material_mode]
+    gearbox = compoundPlanetaryGearbox(design_parameters         = cpg_design_params,
+                                      gear_standard_parameters  = Gear_standard_parameters,
+                                      densityGears              = material_settings["densityGears"],
+                                      densityStructure          = material_settings["densityStructure"],
+                                      maxGearAllowableStressMPa = material_settings["maxGearAllowableStressMPa"])
 
-# VT8020-Actuator
-Actuator_VT8020 = compoundPlanetaryActuator(design_parameters        = cpg_design_params,
-                                            motor                    = Motor8020,  
-                                            motor_driver_params      = Motor_Driver_OdrivePro_params,
-                                            compoundPlanetaryGearbox = compoundPlanetaryGearboxInstance, 
-                                            FOS                      = MIT_params["FOS"], 
-                                            serviceFactor            = MIT_params["serviceFactor"], 
-                                            maxGearboxDiameter       = maxGearboxDiameter_VT8020,
-                                            stressAnalysisMethodName = "MIT")
+    ActuatorClass = pancakeCompoundActuator if style == "pancake" else compoundPlanetaryActuator
+    actuator = ActuatorClass(design_parameters        = cpg_design_params,
+                              motor                    = motor_obj,
+                              motor_driver_params      = Motor_Driver_OdrivePro_params,
+                              compoundPlanetaryGearbox = gearbox,
+                              FOS                      = MIT_params["FOS"],
+                              serviceFactor            = MIT_params["serviceFactor"],
+                              maxGearboxDiameter       = maxGearboxDiameter,
+                              stressAnalysisMethodName = "MIT")
+    actuator.materialMode = material_mode
+    return actuator
 
-# U12-Actuator
-Actuator_U12 = compoundPlanetaryActuator(design_parameters        = cpg_design_params,
-                                         motor                    = MotorU12,  
-                                         motor_driver_params      = Motor_Driver_OdrivePro_params,
-                                         compoundPlanetaryGearbox = compoundPlanetaryGearboxInstance, 
-                                         FOS                      = MIT_params["FOS"], 
-                                         serviceFactor            = MIT_params["serviceFactor"], 
-                                         maxGearboxDiameter       = maxGearboxDiameter_U12,
-                                         stressAnalysisMethodName = "MIT")
-
-
-Actuator_MAD_M6C12 = compoundPlanetaryActuator(design_parameters        = cpg_design_params,
-                                               motor                    = MotorMAD_M6C12,  
-                                               motor_driver_params      = Motor_Driver_OdrivePro_params,
-                                               compoundPlanetaryGearbox = compoundPlanetaryGearboxInstance, 
-                                               FOS                      = MIT_params["FOS"], 
-                                               serviceFactor            = MIT_params["serviceFactor"], 
-                                               maxGearboxDiameter       = maxGearboxDiameter_MAD_M6C12,
-                                               stressAnalysisMethodName = "MIT")
 #-----------------------------------------------------
 # Optimization
 #-----------------------------------------------------
@@ -500,91 +490,52 @@ Optimizer_MAD_M6C12 = optimizationCompoundPlanetaryActuator(design_parameters   
                                                             GEAR_RATIO_MAX             = GEAR_RATIO_MAX             ,
                                                             GEAR_RATIO_STEP            = GEAR_RATIO_STEP            )
 
+MOTOR_LOOKUP = {
+    "U8":        (MotorU8,        maxGearboxDiameter_U8,        Optimizer_U8),
+    "U10":       (MotorU10,       maxGearboxDiameter_U10,       Optimizer_U10),
+    "MN8014":    (MotorMN8014,    maxGearboxDiameter_MN8014,    Optimizer_MN8014),
+    "VT8020":    (Motor8020,      maxGearboxDiameter_VT8020,    Optimizer_VT8020),
+    "U12":       (MotorU12,       maxGearboxDiameter_U12,       Optimizer_U12),
+    "MAD_M6C12": (MotorMAD_M6C12, maxGearboxDiameter_MAD_M6C12, Optimizer_MAD_M6C12),
+}
+
 
 #=============================================================
 # run function to select the gearbox_type
 #=============================================================
-def run(motor_name, gear_ratio):
-    if motor_name == "U8":
-        return Optimizer_U8.optimizeActuator(
-            Actuator_U8,
-            UsePSCasVariable=0,
-            log=0,
-            csv=1,
-            printOptParams=1,
-            gearRatioReq=gear_ratio
-        )
+def run(motor_name, gear_ratio, actuator_style="pancake", material_mode="3dp"):
+    actuator_style = actuator_style.lower()
+    material_mode = material_mode.lower()
 
-    elif motor_name == "U10":
-        return Optimizer_U10.optimizeActuator(
-            Actuator_U10,
-            UsePSCasVariable=0,
-            log=0,
-            csv=1,
-            printOptParams=1,
-            gearRatioReq=gear_ratio
-        )
+    if actuator_style not in ["normal", "pancake"]:
+        raise ValueError("actuator_style must be 'normal' or 'pancake'")
 
-    elif motor_name == "MN8014":
-        return Optimizer_MN8014.optimizeActuator(
-            Actuator_MN8014,
-            UsePSCasVariable=0,
-            log=0,
-            csv=1,
-            printOptParams=1,
-            gearRatioReq=gear_ratio
-        )
+    if material_mode not in MATERIAL_SETTINGS:
+        raise ValueError("material_mode must be '3dp' or 'metal'")
 
-    elif motor_name == "VT8020":
-        return Optimizer_VT8020.optimizeActuator(
-            Actuator_VT8020,
-            UsePSCasVariable=0,
-            log=0,
-            csv=1,
-            printOptParams=1,
-            gearRatioReq=gear_ratio
-        )
-
-    elif motor_name == "U12":
-        return Optimizer_U12.optimizeActuator(
-            Actuator_U12,
-            UsePSCasVariable=0,
-            log=0,
-            csv=1,
-            printOptParams=1,
-            gearRatioReq=gear_ratio
-        )
-
-    elif motor_name == "MAD_M6C12":
-        return Optimizer_MAD_M6C12.optimizeActuator(
-            Actuator_MAD_M6C12,
-            UsePSCasVariable=0,
-            log=0,
-            csv=1,
-            printOptParams=1,
-            gearRatioReq=gear_ratio
-        )
-
-    else:
+    if motor_name not in MOTOR_LOOKUP:
         raise ValueError(f"Unsupported motor: {motor_name}")
 
+    motor_obj, maxGearboxDiameter, optimizer = MOTOR_LOOKUP[motor_name]
+    actuator = build_actuator(motor_obj, maxGearboxDiameter, material_mode, actuator_style)
+    return optimizer.optimizeActuator(
+        actuator,
+        UsePSCasVariable=0,
+        log=0,
+        csv=1,
+        printOptParams=1,
+        gearRatioReq=gear_ratio
+    )
+
 #-------------------------------------------------
-# Optimize
+# Optimize for all motors, actuator styles, and material modes
 #-------------------------------------------------
-# totalTime_U8 = Optimizer_U8.optimizeActuator(Actuator_U8, UsePSCasVariable = 0, log=0, csv=1, printOptParams=1, gearRatioReq = 0)
-# print("Optimization Completed : CPG U8 : Total Time:", totalTime_U8)
+motors = ["MAD_M6C12"] #"U8","VT8020", "U12", "U10", "MN8014", 
+styles = ["normal", "pancake"]
+materials = ["3dp", "metal"]
 
-# totalTime_U10 = Optimizer_U10.optimizeActuator(Actuator_U10, UsePSCasVariable = 0, log=0, csv=1, printOptParams=1, gearRatioReq = 0)
-# print("Optimization Completed : CPG U10 : Total Time:", totalTime_U10)
-
-# totalTime_MN8014 = Optimizer_MN8014.optimizeActuator(Actuator_MN8014, UsePSCasVariable = 0, log=0, csv=1, printOptParams=1, gearRatioReq = 0)
-# print("Optimization Completed : CPG MN8014 : Total Time:", totalTime_MN8014)
-
-# totalTime_VT8020 = Optimizer_VT8020.optimizeActuator(Actuator_VT8020, UsePSCasVariable = 0, log=0, csv=1, printOptParams=1, gearRatioReq = 0)
-# print("Optimization Completed : CPG VT8020 : Total Time:", totalTime_VT8020)
-
-# totalTime_U12 = Optimizer_U12.optimizeActuator(Actuator_U12, UsePSCasVariable = 0, log=0, csv=1, printOptParams=1, gearRatioReq = 0)
-# print("Optimization Completed : CPG U12 : Total Time:", totalTime_U12)
-
-# totalTime_MAD_M6C12 = Optimizer_MAD_M6C12.optimizeActuator(Actuator_MAD_M6C12, UsePSCasVariable = 0, log=0, csv=1, printOptParams=1, gearRatioReq = 0)
-# print("Optimization Completed : CPG  MAD_M6C12 : Time Taken:", totalTime_MAD_M6C12)
+for motor in motors:
+    for style in styles:
+        for material_mode in materials:
+            totalTime, opt_parameters = run(motor, gear_ratio=0, actuator_style=style, material_mode=material_mode)
+            print(f"Optimization Completed : CPG {style} {motor} {material_mode} : Total Time: {totalTime}")

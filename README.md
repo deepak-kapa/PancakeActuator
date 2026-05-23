@@ -1,4 +1,4 @@
-# COMPAct: CPG and Pancake-CPG Optimization
+# Pancake Actuators: A Novel Design Architecture for Compound Planetary Gearboxes
 
 This repo is a lightweight actuator optimization framework for:
 - `cpg` (Compound Planetary Gearbox)
@@ -6,11 +6,7 @@ This repo is a lightweight actuator optimization framework for:
 
 ## Quick Start
 
-1. Clone and enter the repo:
-```bash
-git clone <your-repo-url>
-cd PancakeActuator
-```
+1. Clone and enter the repo
 
 2. Install dependencies:
 ```bash

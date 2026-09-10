@@ -12,19 +12,34 @@ import matplotlib.pyplot as plt
 # ============ CONFIG ============
 ACTUATORS = [
     {
-        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260905_002750.csv",
-        "label": "CPG_1",
+        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260910_021113.csv",
+        "label": "CPG_Pancake_1",
         "color": "blue",
     },
     {
-        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260905_011259.csv",
-        "label": "CPG_2",
+        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260910_021631.csv",
+        "label": "CPG_Pancake_2",
         "color": "red",
     },
     {
-        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260905_005156.csv",
-        "label": "CPG_3",
+        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260910_022140.csv",
+        "label": "CPG_Pancake_3",
         "color": "green",
+    },
+        {
+        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260910_022425.csv",
+        "label": "CPG_Pancake_4",
+        "color": "yellow",
+    },
+        {
+        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260910_023122.csv",
+        "label": "CPG_Pancake_5",
+        "color": "pink",
+    },
+        {
+        "csv": "/home/surya/odrive_testing/actuator-testbench/Actuator_Data/CPG_NEW_2SEP/backlash_new_test/backlash_20260910_023525.csv",
+        "label": "CPG_Pancake_6",
+        "color": "black",
     },
 ]
 
